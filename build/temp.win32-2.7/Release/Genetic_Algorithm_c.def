@@ -1,0 +1,3 @@
+LIBRARY Genetic_Algorithm_c.pyd
+EXPORTS
+initGenetic_Algorithm_c

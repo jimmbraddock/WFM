@@ -1,0 +1,3 @@
+LIBRARY Entity_c.pyd
+EXPORTS
+initEntity_c

@@ -1,0 +1,203 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Using CloudMade Routing with OpenLayers</title>
+  <link rel="stylesheet" href="theme/default/style.css" type="text/css" />
+</head>
+<body>
+  <script src="OpenLayers.js"></script>
+  <script src="cloudmade.js"></script>
+  <div id="map" style="width: 560px; height: 570px; float: left;padding: 20px;">
+  <script type="text/javascript">
+    function rndColor() {
+        return '#' + ('00000' + (Math.random() * 16777216 << 0).toString(16)).substr(-6);
+    }
+    var map = new OpenLayers.Map("map", {
+        controls: [
+           new OpenLayers.Control.Navigation(),
+           new OpenLayers.Control.PanZoomBar(),
+           new OpenLayers.Control.ScaleLine(),
+       new OpenLayers.Control.Attribution(),
+       new OpenLayers.Control.LayerSwitcher()
+        ]
+      });
+
+    var cloudmade = new OpenLayers.Layer.CloudMade("CloudMade", {
+      key: 'BC9A493B41014CAABB98F0471D759707'
+    });
+    map.addLayer(cloudmade);
+
+    var epsg4326 = new OpenLayers.Projection("EPSG:4326");
+    var center = new OpenLayers.LonLat(30, 60).transform(epsg4326, map.getProjectionObject());
+//    map.setCenter(center, 11);
+
+    map.addControl(new OpenLayers.Control.LayerSwitcher());
+
+    var pointLayer = new OpenLayers.Layer.Vector("Клиенты", {
+        projection: "EPSG:900913"
+    });
+    map.addLayer(pointLayer);
+
+    var allClients = [[30.350544, 59.999623, 9, 12, '1', 1.0, '\u0413\u043e\u043d\u0447\u0430\u0440\u043e\u0432 \u0410.\u0412.'], [30.283422, 59.940608, 14, 17, '12', 1.6, '\u041f\u0435\u0442\u0440\u0435\u043d\u043a\u043e \u041b.\u041d'], [30.298571, 59.923732, 10, 13, '1', 1.0, '\u0413\u043b\u0438\u043d\u043a\u0430 \u0421.\u0410.'], [30.302444, 59.863053, 9, 16, '3', 0.5, '\u0410\u0431\u0430\u043a\u0443\u043c\u043e\u0432 \u0412.\u0414.'], [30.40057, 59.869613, 11, 15, '1', 1.0, '\u041d\u0435\u0440\u0436\u0438\u043d \u0415.\u0424.'], [30.311116, 59.913881, 8, 20, '', 0, 'base']];
+    var pointFeatures = [];
+    for(var i = 0; i < allClients.length; i++) {
+        var icons = ['img/marker.png', 'img/marker-blue.png'];
+        var px = allClients[i][0];
+        var py = allClients[i][1];
+
+        // Create a lonlat instance and transform it to the map projection.
+        var lonlat = new OpenLayers.LonLat(px, py);
+        lonlat.transform(new OpenLayers.Projection("EPSG:4326"), new OpenLayers.Projection("EPSG:900913"));
+        var pointGeometry = new OpenLayers.Geometry.Point(lonlat.lon, lonlat.lat);
+        var icon = "";
+        if (i == allClients.length - 1)
+            icon = icons[1];
+        else
+            icon = icons[0];
+        var pointFeature = new OpenLayers.Feature.Vector(
+                pointGeometry,
+                null, {
+                    pointRadius: 12,
+                    fillOpacity: 0.7,
+                    externalGraphic: icon
+                });
+        if (i < allClients.length - 1) {
+            pointFeature.attributes = {
+                'startArrive': allClients[i][2],
+                'endArrive': allClients[i][3],
+                'taskType': allClients[i][4],
+                'taskTime': allClients[i][5],
+                'name': allClients[i][6]
+            };
+        }
+        pointFeatures.push(pointFeature);
+    }
+    pointLayer.addFeatures(pointFeatures);
+
+
+    var workers = ['\u0422\u0438\u0445\u043e\u043d\u043e\u0432 \u0412.\u041c.', '\u041f\u0435\u0442\u0440\u043e\u0432 \u0417.\u041a.', '\u0421\u043c\u0438\u0440\u043d\u043e\u0432 \u0413.\u0422.'] ;
+    var servedClient = [[[59.913881, 30.311116], [59.940608, 30.283422], [59.923732, 30.298571], [59.913881, 30.311116]], [[59.913881, 30.311116], [59.999623, 30.350544], [59.869613, 30.40057], [59.863053, 30.302444], [59.913881, 30.311116]], [[59.913881, 30.311116], [59.913881, 30.311116]]] ;
+    var callbacks = ['getRoute0','getRoute1','getRoute2'] ;
+    var colorPath = ['#000000', '#6A5ACD', '#FF4500', '#9932CC', '#228B22', '#4169E1', '#FFFF00', '#FF00FF', '#000000', '#6A5ACD', '#FF4500'] ;
+    var lineLayer = [];
+    // Для каждого монтера свой слой (маршрут)
+    for (i = 0; i < workers.length; i++) {
+        if (servedClient[i].length > 2) {
+            lineLayer.push(new OpenLayers.Layer.Vector(workers[i]));
+            map.addLayer(lineLayer[i]);
+            var path = String(servedClient[i][0]) + ',[';
+            for (var j = 1; j < servedClient[i].length - 1; j++)
+                path += String(servedClient[i][j]) + ',';
+
+            path = path.substring(0, path.length - 1) + '],' + String(servedClient[i].slice(-1)[0]);
+
+            console.log(path);
+             addScript('http://routes.cloudmade.com/8ee2a50541944fb9bcedded5165f09d9/api/0.3/' +
+                path +
+                '/car.js?callback=' + callbacks[i]);
+        }
+    }
+
+    function getRoute0(response) {getRouteCommon(response, lineLayer[0],colorPath[0]);}
+function getRoute1(response) {getRouteCommon(response, lineLayer[1],colorPath[1]);}
+function getRoute2(response) {getRouteCommon(response, lineLayer[2],colorPath[2]);}
+
+
+    function addScript(url, param) {
+      var script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = url;
+      document.getElementsByTagName('head')[0].appendChild(script);
+    }
+
+    function getRouteCommon(response, layerName, colorPath) {
+      var points = [];
+      for (var i = 0; i < response.route_geometry.length; i++) {
+        var point = new OpenLayers.Geometry.Point(
+            response.route_geometry[i][1],
+            response.route_geometry[i][0]);
+        points.push(point.transform(epsg4326, map.getProjectionObject()));
+      }
+      var geometry = new OpenLayers.Geometry.LineString(points);
+      var feature = new OpenLayers.Feature.Vector(geometry, null, {
+        strokeColor: colorPath,
+        strokeDashstyle: 'solid',
+        strokeOpacity: 0.6,
+        strokeWidth: 5
+      });
+        layerName.addFeatures(feature);
+    }
+        function onFeatureSelect(feature) {
+            var layer = feature.layer;
+            feature.style.fillOpacity = 1;
+            feature.style.pointRadius = 14;
+            layer.drawFeature(feature);
+            var content = "";
+            if (!Object.keys(feature.attributes).length) {
+                content = "<div><strong>БАЗА</strong></div>"
+            }
+            else {
+                content = "<div><strong>Тип проблемы: </strong>" + feature.attributes.taskType + "<br/>"+
+                        "<strong>Клиент: </strong>" + feature.attributes.name + "<br/>"+
+                        "<strong>Время прибытия: </strong>" + feature.attributes.startArrive + " - " + feature.attributes.endArrive + "ч<br/>"+
+                        "<strong>Длительность задачи: </strong>" + feature.attributes.taskTime + "ч<br/></div>";
+            }
+            var popup = new OpenLayers.Popup.FramedCloud(
+                    feature.id+"_popup",
+                    feature.geometry.getBounds().getCenterLonLat(),
+                    new OpenLayers.Size(150, 100),
+                    content,
+                    null,
+                    true,
+                    null);
+            feature.popup = popup;
+            map.addPopup(popup);
+        }
+
+        function onFeatureUnSelect(feature) {
+            var layer = feature.layer;
+            feature.style.fillOpacity = 0.7;
+            feature.style.pointRadius = 10;
+            map.removePopup(feature.popup);
+            feature.popup.destroy();
+            feature.popup = null;
+            layer.drawFeature(feature);
+        }
+        // Add select feature control required to trigger events on the vector layer.
+        var selectControl = new OpenLayers.Control.SelectFeature(pointLayer, {
+            hover: true,
+            onSelect: onFeatureSelect,
+            onUnselect: onFeatureUnSelect
+        });
+
+        map.addControl(selectControl);
+        selectControl.activate();
+        map.setCenter(new OpenLayers.LonLat(30.3, 59.9).transform(new OpenLayers.Projection("EPSG:4326"),new OpenLayers.Projection("EPSG:900913")), 11);
+  </script>
+</div>
+<div id="pop" style="position: absolute;
+                left: 360px;
+                top: 1em;
+                 float: left;margin-left: 225px;">
+  <div id="tableContainer" class="tableContainer">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" class="scrollTable">
+  <thead class="fixedHeader">
+  <tr>
+      <th><a href="#">Монтер</a></th>
+      <th><a href="#">Путь</a></th>
+  </tr>
+  </thead>
+  <tbody class="scrollContent">
+  <tr>
+                    <td>Тихонов В.М.</td>
+                    <td bgcolor="#000000"></td>
+                </tr><tr>
+                    <td>Петров З.К.</td>
+                    <td bgcolor="#6A5ACD"></td>
+                </tr>
+  </tbody>
+  </table>
+  </div> </div>
+</body>
+</html>

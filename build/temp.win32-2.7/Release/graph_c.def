@@ -1,0 +1,3 @@
+LIBRARY graph_c.pyd
+EXPORTS
+initgraph_c
